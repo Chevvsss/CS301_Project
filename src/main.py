@@ -4,8 +4,9 @@ import time
 import argparse
 from predict import predicted_color
 import numpy as np
-from draw import draw_2d_cube_state
+import draw
 import helpers
+import manual
 from rubik_solver import utils
 from PyCube import PyCube
 
@@ -153,10 +154,10 @@ class Face:
             #write wanted color on frame bottom left
             cv2.putText(frame, f"Show the {wanted_color} center", (10, 470), cv2.FONT_HERSHEY_SIMPLEX,0.5, self.colors[wanted_color.capitalize()], 2, cv2.LINE_AA)
             if (wanted_color != "green") and (wanted_color != "blue"):
-                cv2.putText(frame, "put the green center on UP face", (350, 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5,self.colors["White"], 2, cv2.LINE_AA)
+                cv2.putText(frame, "put the green center on UP face", (10, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.colors[wanted_color.capitalize()], 2, cv2.LINE_AA)
             elif wanted_color == "green":
-                cv2.putText(frame, "put the white center on DOWN face", (350, 10),cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.colors["White"], 2, cv2.LINE_AA)
-            else: cv2.putText(frame, "put the white center on UP face", (350, 10),cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.colors["White"], 2, cv2.LINE_AA)
+                cv2.putText(frame, "put the white center on DOWN face", (10, 450),cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.colors[wanted_color.capitalize()], 2, cv2.LINE_AA)
+            else: cv2.putText(frame, "put the white center on UP face", (10, 450),cv2.FONT_HERSHEY_SIMPLEX, 0.5, self.colors[wanted_color.capitalize()], 2, cv2.LINE_AA)
             if len(contours) == 9:
                 middle = contours[4]
                 x = middle[0]
@@ -191,10 +192,9 @@ class Face:
                 else:
                     #write "not the correct color" on the right side of the frame
                     cv2.putText(frame, 'Not the correct color', (400, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            image=draw_2d_cube_state(frame, faces)
-
-
+            image=draw.draw_2d_cube_state(frame, faces)
             cv2.imshow("Rubik's Cube Solver", image)
+
 
             key_pressed = cv2.waitKey(1) & 0xFF
             if key_pressed == 27 or key_pressed == ord('q'):
@@ -227,6 +227,8 @@ class Face:
                 elif self.name == 'green':
                     self.face =np.rot90(self.face, 0)
                 print('Face {} scanned!'.format(self.name))
+
+
         
     def flatten(self):
         return [color for row in self.face for color in row]
@@ -267,58 +269,82 @@ calibrate_colors = args.calibrate
 
 if __name__ == '__main__':
     colors = helpers.Colors()
+    cube_string = ""
 
-    faces ={
+    faces = {
         'white': Face('white', colors),
-        'orange': Face('orange',colors),
-        'yellow': Face('yellow',colors),
-        'red': Face('red',colors),
-        'blue': Face('blue',colors),
-        'green': Face('green',colors),
+        'orange': Face('orange', colors),
+        'yellow': Face('yellow', colors),
+        'red': Face('red', colors),
+        'blue': Face('blue', colors),
+        'green': Face('green', colors),
     }
 
     faces_list = ["white", "orange", "yellow", "red", "blue", "green"]
     idx = 0
 
-    while not all_scanned(faces):
-        key = faces_list[idx]
-        redo = faces[key].scan(key)
-        if redo and idx-1 >= 0:
-            last_key = faces_list[idx-1]
-            faces[last_key] = Face(last_key,colors)
-            idx -= 1
-        elif not redo:
-            idx += 1
+    inp = input("Enter [0] for manual and [1] for cam:\n")
 
+    if inp == "0":
+        cube_string = manual.main_manual()
+    if inp == "1":
 
-    order = ['yellow', 'blue', 'red', 'green', 'orange', 'white']
-    cube_string = ""
-    for i in order:
-        cube_string += "".join(faces[i].flatten())
-    
-    
-    # For rubik_solver library
-    cube_string = cube_string.replace("white", "w")
-    cube_string = cube_string.replace("orange", "o")
-    cube_string = cube_string.replace("green", "g")
-    cube_string = cube_string.replace("red", "r")
-    cube_string = cube_string.replace("blue", "b")
-    cube_string = cube_string.replace("yellow", "y")
+        while not all_scanned(faces):
+            key = faces_list[idx]
+            redo = faces[key].scan(key)
+            if redo and idx-1 >= 0:
+                last_key = faces_list[idx-1]
+                faces[last_key] = Face(last_key,colors)
+                idx -= 1
+            elif not redo:
+                idx += 1
+
+        order = ['yellow', 'blue', 'red', 'green', 'orange', 'white']
+
+        for i in order:
+            cube_string += "".join(faces[i].flatten())
+
+        # For rubik_solver library
+        cube_string = cube_string.replace("white", "w")
+        cube_string = cube_string.replace("orange", "o")
+        cube_string = cube_string.replace("green", "g")
+        cube_string = cube_string.replace("red", "r")
+        cube_string = cube_string.replace("blue", "b")
+        cube_string = cube_string.replace("yellow", "y")
 
     print("Solving the cube...")
 
-    #solve the cube
+    # solve the cube
     print(cube_string)
-
-    
     try:
         solution = utils.solve(cube_string, 'Kociemba')
         print(solution)
-        launch_cube(solution) 
+        launch_cube(solution)
 
     except Exception:
         print("Cubestring not valid: ", cube_string)
         print(f"There are {cube_string.count('w')} white, {cube_string.count('o')} orange, {cube_string.count('g')} green, {cube_string.count('r')} red, {cube_string.count('b')} blue, {cube_string.count('y')} yellow squares")
         print("There should be 9 of each color")
-        print("Please scan the cube again") 
+        print("Please scan the cube again")
     cv2.waitKey(0)
+
+"""Manual Input Test
+yellow= g,g,w
+        r,y,o
+        o,o,b
+blue  = r,w,b
+        b,b,b
+        b,g,g
+red   = y,w,w
+        y,r,r
+        w,o,o
+greeb = r,y,b
+        y,g,b
+        w,b,o
+orange= o,r,y
+        o,o,r
+        g,g,r
+white = r,g,g
+        w,w,w
+        y,y,y"""
+
